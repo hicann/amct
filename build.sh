@@ -1,0 +1,230 @@
+#!/bin/bash
+# ----------------------------------------------------------------------------
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ----------------------------------------------------------------------------
+
+set -e
+
+BASEPATH=$(cd "$(dirname $0)"; pwd)
+BUILD_PATH="${BASEPATH}/build/"
+
+# print usage message
+usage() {
+  echo "Usage:"
+  echo "  sh build.sh [-h | --help] [-v | --verbose] [-j<N>]"
+  echo "              [--cann_3rd_lib_path=<PATH>] [--output_path=<PATH>]"
+  echo ""
+  echo "Options:"
+  echo "    -h, --help        Print usage"
+  echo "    -v, --verbose     Display build command"
+  echo "    -j<N>             Set the number of threads used for building HIXL, default is 8"
+  echo "    --build-type=<TYPE>"
+  echo "                      Specify build type (TYPE options: Release/Debug), Default: Release"
+  echo "    --pkg             Build run package"
+  echo "    --cann_3rd_lib_path=<PATH>"
+  echo "                      Set ascend third_party package install path, default ./third_party"
+  echo "    --output_path=<PATH>"
+  echo "                      Set output path, default ./build_out"
+  echo "    -u, --utest       Build and run all unit tests"
+  echo "    --cov             Enable coverage"
+  echo ""
+}
+
+# parse and set options
+checkopts() {
+  VERBOSE=""
+  THREAD_NUM=$(grep -c ^processor /proc/cpuinfo)
+  BUILD_TYPE="Release"
+  VERSION=""
+
+  OUTPUT_PATH="${BASEPATH}/build_out/"
+
+  # Process the options
+  parsed_args=$(getopt -a -o j:hvt -l help,verbose,pkg,utest,cov,build-type:,cann_3rd_lib_path:,output_path:, -- "$@") || {
+    usage
+    exit 1
+  }
+
+  eval set -- "$parsed_args"
+
+  while true; do
+    case "$1" in
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      -j)
+        THREAD_NUM="$2"
+        shift 2
+        ;;
+      -v | --verbose)
+        VERBOSE="VERBOSE=1"
+        shift
+        ;;
+      --cann_3rd_lib_path)
+        if [ -d "$2" ]; then
+          CANN_3RD_LIB_PATH="$(realpath $2)"
+        else
+          echo "Warning: Third lib path '$2' does not exist or is not a directory"
+        fi
+        shift 2
+        ;;
+       --pkg)
+        ENABLE_PACKAGE=TRUE
+        shift
+        ;;
+      --output_path)
+        if [ -d "$2" ]; then
+          OUTPUT_PATH="$(realpath $2)"
+        else
+          echo "Warning: Output path '$2' does not exist or is not a directory"
+        fi
+        shift 2
+        ;;
+      --build-type)
+        BUILD_TYPE=$2
+        shift 2
+        ;;
+      -u | --utest)
+        ENABLE_TEST=TRUE
+        shift
+        ;;
+      --cov)
+        ENABLE_COVERAGE=TRUE
+        shift
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        echo "Undefined option: $1"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+}
+
+build() {
+
+  cd ${BASEPATH}/amct_pytorch && chmod 640 `find ./ -type f` && chmod 750 `find ./ -type d`
+  prex="$(uname -m)"
+  export AMCT_PYTORCH_PLATFORM="linux-${prex}"
+  cd ${BASEPATH} && python3 setup.py sdist --formats=gztar
+
+  echo "create build_out directory and build amct";
+  if [ -d "${OUTPUT_PATH}" ];then
+    echo "${OUTPUT_PATH} exist, delete old path"
+    rm -rf ${OUTPUT_PATH}
+  fi
+  echo "create path ${OUTPUT_PATH}"
+  mkdir ${OUTPUT_PATH}
+
+  cp ./dist/*.tar.gz ${OUTPUT_PATH}
+  if find ${OUTPUT_PATH} -type f -name "amct_pytorch-*-py3-none-linux-${prex}.tar.gz" | grep -q .;then
+    echo "package amct run success"
+  else
+    echo "package amct run failed"
+    return 1
+  fi
+
+  rm -rf dist
+  rm -rf *.egg-info
+
+}
+
+assemble_cmake_args() {
+  if [[ "$ENABLE_ASAN" == "TRUE" ]]; then
+    set +e
+    echo 'int main() {return 0;}' | gcc -x c -fsanitize=address - -o asan_test >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+      echo "This environment does not have the ASAN library, no need enable ASAN"
+      ENABLE_ASAN=FALSE
+    else
+      $(rm -f asan_test)
+      CMAKE_ARGS="$CMAKE_ARGS -DENABLE_ASAN=TRUE"
+    fi
+    set -e
+  fi
+  echo "$(uname -m)-$(uname -s)"
+  PREX="$(uname -m)-$(uname -s)"
+  echo "${PREX}"
+  LOWER_PREX=$(echo "${PREX}" | tr '[:upper:]' '[:lower:]')
+  echo "$LOWER_PREX"
+  CMAKE_ARGS="$CMAKE_ARGS -DENABLE_PACKAGE=${ENABLE_PACKAGE}"
+  CMAKE_ARGS="$CMAKE_ARGS -DENABLE_TEST=${ENABLE_TEST}"
+  CMAKE_ARGS="$CMAKE_ARGS -DENABLE_UT_EXEC=${ENABLE_UT_EXEC}"
+  CMAKE_ARGS="$CMAKE_ARGS -DENABLE_COVERAGE=${ENABLE_COVERAGE}"
+  CMAKE_ARGS="$CMAKE_ARGS -DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}"
+  CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+  CMAKE_ARGS="$CMAKE_ARGS -DTOP_DIR=${BASEPATH}"
+  CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_VERBOSE_MAKEFILE=ON"
+  CMAKE_ARGS="$CMAKE_ARGS -DASCEND_HOME_PATH=${ASCEND_HOME_PATH}"
+  CMAKE_ARGS="$CMAKE_ARGS -DPREX=${LOWER_PREX}"
+  CMAKE_ARGS="$CMAKE_ARGS -DBUILD_WITH_INSTALLED_DEPENDENCY_CANN_PKG=ON"
+}
+
+clean_build() {
+  if [ -d "${BUILD_PATH}" ]; then
+    rm -rf ${BUILD_PATH}/*
+  fi
+}
+
+clean_build_out() {
+  if [ -d "${OUTPUT_PATH}" ]; then
+    rm -rf ${OUTPUT_PATH}/*
+  fi
+}
+
+build_package() {
+  echo "--------------- build package start ---------------"
+  build || { echo "Build failed."; exit 1; }
+  echo "--------------- build package end ---------------"
+}
+
+build_ut() {
+  echo $dotted_line
+  echo "Start to build ut"
+  clean_build
+  if [ ! -d "${BUILD_PATH}" ]; then
+    mkdir -p "${BUILD_PATH}"
+  fi
+
+  if [[ "$ENABLE_COVERAGE" == "TRUE" ]]; then
+    cd "${BUILD_PATH}" && PYTHONPATH=${BASEPATH}:${PYTHONPATH} coverage run -m unittest discover ${BASEPATH}/tests/amct_pytorch/ && coverage report && coverage html
+  else
+    cd "${BUILD_PATH}" && PYTHONPATH=${BASEPATH}:${PYTHONPATH} coverage run -m unittest discover ${BASEPATH}/tests/amct_pytorch/
+  fi
+}
+
+main() {
+  cd "${BASEPATH}"
+  echo "----------------BASEPATH  ${BASEPATH}  ----------------"
+  checkopts "$@"
+  g++ -v
+  assemble_cmake_args
+  echo "CMAKE_ARGS: ${CMAKE_ARGS}"
+  echo "----------------OUTPUT_PATH  ${OUTPUT_PATH}  ----------------"
+  if [[ "$ENABLE_PACKAGE" == "TRUE" ]]; then
+    build_package
+  fi
+  if [[ "$ENABLE_TEST" == "TRUE" ]]; then
+    build_ut
+  fi
+  echo "---------------- Build finished ----------------"
+}
+
+main "$@"

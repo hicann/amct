@@ -1,0 +1,90 @@
+# ----------------------------------------------------------------------------
+# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ----------------------------------------------------------------------------
+import torch
+
+from amct_pytorch.utils.quant_util import convert_dtype
+
+
+def npu_quant_matmul(x1, x2, x2_scale, offset=None, bias=None, pertoken_scale=None, output_dtype=torch.bfloat16,
+    x2_dtype=None, pertoken_scale_dtype=None, scale_dtype=None, group_sizes=None):
+    if len(x1.shape) < 2 or len(x1.shape) > 6:
+        raise RuntimeError()
+    if x2.dtype == torch.float8_e4m3fn:
+        x2_scale = x2_scale.reshape(x2_scale.shape[0], -1)
+    if bias is not None:
+        bias = bias.to(torch.float32)
+    out = torch.nn.functional.linear(x1.to(torch.float32), x2.to(torch.float32), bias).to(output_dtype)
+    return out
+
+
+def mock_npu_weight_quant_batchmatmul(x, weight, antiquant_scale,
+    antiquant_offset=None, quant_scale=None, quant_offset=None,
+    bias=None, antiquant_group_size=0, inner_precise=0,
+    weight_dtype=None):
+    ori_dtype = x.dtype
+    x_fp32 = x.float()
+    weight_fp32 = weight.float()
+    scale_fp32 = antiquant_scale.float()
+
+    if weight_fp32.dim() == 3:
+        N_div_8, K, _ = weight_fp32.shape
+        N = N_div_8 * 8
+        weight_fp32 = weight_fp32.reshape(K, N)
+
+    if x_fp32.shape[-1] != weight_fp32.shape[1]:
+        weight_fp32 = weight_fp32.transpose(0, 1)
+    
+    if scale_fp32.dim() == 1 and scale_fp32.numel() == weight_fp32.shape[0]:
+        weight_fp32 = weight_fp32 * scale_fp32.unsqueeze(1)
+
+    out = torch.nn.functional.linear(x_fp32, weight_fp32, bias)
+    out = out.to(ori_dtype)
+    return out
+ 
+
+def mock_npu_quant_matmul(x, weight, scale, pertoken_scale, bias=None, output_dtype=torch.float32, x1_dtype=None, x2_dtype=None):
+    x = x.to(torch.float32)
+    weight = weight.to(torch.float32)
+    if bias is not None:
+        bias = bias.to(torch.float32)
+    weight = weight.transpose(0, 1)
+    out = torch.nn.functional.linear(x, weight, bias)
+    out *= scale.reshape(1, -1)
+    out = out.to(output_dtype)
+    return out
+ 
+def mock_npu_quantize(input, scales, zero_points=None,
+    dtype=torch.qint8, axis=1, div_mode=True):
+    if div_mode:
+        out = input / scales
+    else:
+        out = input.transpose(-1, -2) * scales
+        out = out.transpose(-1, -2)
+    if zero_points is not None:
+        zero_points_shape = [1] * len(input.shape)
+        zero_points_shape[axis] = -1
+        zero_points = zero_points.reshape(zero_points_shape)
+        out += zero_points
+    if dtype == torch.qint8:
+        out = torch.quantize_per_tensor(input, 1, 0, dtype)
+
+    return out
+ 
+def mock_npu_convert_weight_to_int4pack(weight, inner_k_tiles=0):
+    return weight
+
+def mock_npu(self):
+    return self
