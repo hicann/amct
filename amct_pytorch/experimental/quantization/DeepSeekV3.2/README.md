@@ -30,6 +30,10 @@ experience中存放LLM量化和推理的典型模型sample，不依赖框架，�
 
 ## 📝使用说明
 我们提供了对应的scrip在`./scripts/`，示例如下：
+
+训练阶段，根据实际需要修改`w_bits`、`a_bits`、`q_bits`、`k_bits`和`v_bits`，进行C8训练时请保证cls传入c8，否则会导致MLA部分的训练参数无梯度，训练MOE时请将cls调整至bf16
+
+测试阶段，根据实际需要修改`w_bits`、`a_bits`、`q_bits`、`k_bits`和`v_bits`，同时需要修改train_mode，根据仅量化MLA、仅量化MOE、MLA+MOE均量化、不量化依次分为：`mla`、`moe`、`block`、`origin`
 ### 数据提取
 ```
 python3 extract_calib_data.py --model $model_path --output_dir $output_dir
@@ -56,13 +60,13 @@ python ./main.py \
  --q_bits 8 --k_bits 8 --v_bits 8 \
  --cali_bsz 1 --epoch 25 --base_lr 1e-2 \
  --lwc --lac \
- --cls c8 \
+ --cls bf16 \
  --output_dir $output_path --data_dir $data_path \
  --start_block_idx $start --end_block_idx $end --train_mode moe --dev 0
 ```
 ### 测试
 ```
-python3 ./eval_ppl.py \
+python3 ./eval.py \
     --a_bits 8 \
     --w_bits 8 \
     --seq_len 4096 \
@@ -82,7 +86,7 @@ python3 ./eval_ppl.py \
 | 模型 | PPL    |
 | ---- |--------|
 | DeepSeek-V3.2-BF16 | 2.9987 |
-| DeepSeek-V3.2-Exp-W8A8C8 | 3.0881 |
+| DeepSeek-V3.2-Exp-W8A8C8 | 3.0304 |
 | DeepSeek-V3.2-Exp-W4A8C8 | 3.2320 |
 ### 主函数参数说明
 #### eval.py
