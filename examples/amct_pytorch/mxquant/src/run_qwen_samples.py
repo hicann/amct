@@ -18,7 +18,7 @@ import argparse
 import torch
 import torch_npu
 
-from utils import get_test_dataset, get_llama2, get_calib_dataset, infer_model, test_ppl
+from utils import get_test_dataset, get_qwen, get_calib_dataset, infer_model, test_ppl
 import amct_pytorch as amct
 
 if __name__ == '__main__':
@@ -27,30 +27,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Phase0: choose model && data
-    model, enc = get_llama2(args.model_path)
+    model, enc = get_qwen(args.model_path)
     quant_model = model.eval().npu()
 
     samples = get_calib_dataset(tokenizer=enc, n_samples=512, block_size=256)
     samples = torch.cat(samples, dim=0)[:64, :]
 
     # Phase1: quantize model
-    cfg = {
-        'batch_num': 1,
-        'quant_cfg': {
-            'weights': {
-                'type': 'int8',
-                'symmetric': True,
-                'strategy': 'channel',
-            },
-            'inputs': {
-                'type': 'int8',
-                'symmetric': False,
-                'strategy': 'tensor',
-            },
-        },
-        'algorithm': {'smoothquant': {'smooth_strength': 0.77}},
-        'skip_layers': {'lm_head'}
-    }
+    cfg = amct.MXFP8_QUANT_CFG
     amct.quantize(quant_model, cfg)
     
     # Phase2: inference calibration model to cal quantized factors

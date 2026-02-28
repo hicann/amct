@@ -34,23 +34,7 @@ if __name__ == '__main__':
     samples = torch.cat(samples, dim=0)[:64, :]
 
     # Phase1: quantize model
-    cfg = {
-        'batch_num': 1,
-        'quant_cfg': {
-            'weights': {
-                'type': 'int8',
-                'symmetric': True,
-                'strategy': 'channel',
-            },
-            'inputs': {
-                'type': 'int8',
-                'symmetric': False,
-                'strategy': 'tensor',
-            },
-        },
-        'algorithm': {'smoothquant': {'smooth_strength': 0.77}},
-        'skip_layers': {'lm_head'}
-    }
+    cfg = amct.MXFP8_QUANT_CFG
     amct.quantize(quant_model, cfg)
     
     # Phase2: inference calibration model to cal quantized factors
