@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ----------------------------------------------------------------------------
+"""Public re-export of Conv3dQAT."""
 
-__all__ = ['config', 'utils', 'datasets', 'evaluate', 'models', 'types', 'auto_calibration',
-           'auto_channel_prune']
+__all__ = ['Conv3dQAT']
+
+from amct_pytorch.classic.graph_based.amct_pytorch.nn.module.quantization.conv3d import Conv3dQAT

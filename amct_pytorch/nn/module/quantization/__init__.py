@@ -14,6 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ----------------------------------------------------------------------------
+"""Public re-export of the QAT quantization modules.
 
-__all__ = ['config', 'utils', 'datasets', 'evaluate', 'models', 'types', 'auto_calibration',
-           'auto_channel_prune']
+The implementation lives under
+``amct_pytorch.classic.graph_based.amct_pytorch.nn.module.quantization``.
+This package exposes the documented import paths such as
+``from amct_pytorch.nn.module.quantization.conv2d import Conv2dQAT``.
+"""
+
+__all__ = [
+    'Conv2dQAT',
+    'Conv3dQAT',
+    'ConvTranspose2dQAT',
+    'LinearQAT',
+    'QuantCalibrationOp',
+]
+
+from .conv2d import Conv2dQAT
+from .conv3d import Conv3dQAT
+from .conv_transpose_2d import ConvTranspose2dQAT
+from .linear import LinearQAT
+from .quant_calibration_op import QuantCalibrationOp

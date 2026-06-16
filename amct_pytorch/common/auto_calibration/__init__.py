@@ -14,6 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ----------------------------------------------------------------------------
+"""Public re-export of the auto calibration base classes.
 
-__all__ = ['config', 'utils', 'datasets', 'evaluate', 'models', 'types', 'auto_calibration',
-           'auto_channel_prune']
+The implementation lives under ``amct_pytorch.classic.graph_based.amct_pytorch``.
+This module exposes the documented import path
+``from amct_pytorch.common.auto_calibration import AutoCalibrationEvaluatorBase``.
+"""
+
+__all__ = ['AccuracyBasedAutoCalibrationBase',
+           'AutoCalibrationEvaluatorBase',
+           'AutoCalibrationStrategyBase',
+           'SensitivityBase',
+           'BinarySearchStrategy',
+           'CosineSimilaritySensitivity']
+
+from amct_pytorch.classic.graph_based.amct_pytorch.common.auto_calibration import (
+    AccuracyBasedAutoCalibrationBase,
+    AutoCalibrationEvaluatorBase,
+    AutoCalibrationStrategyBase,
+    SensitivityBase,
+    BinarySearchStrategy,
+    CosineSimilaritySensitivity,
+)
