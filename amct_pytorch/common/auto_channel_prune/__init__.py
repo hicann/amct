@@ -14,6 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ----------------------------------------------------------------------------
+"""Public re-export of the auto channel prune base classes.
 
-__all__ = ['config', 'utils', 'datasets', 'evaluate', 'models', 'types', 'auto_calibration',
-           'auto_channel_prune']
+The implementation lives under
+``amct_pytorch.classic.graph_based.amct_pytorch.common.auto_channel_prune``.
+This package exposes the documented import paths such as
+``from amct_pytorch.common.auto_channel_prune.sensitivity_base import SensitivityBase``.
+"""
+
+__all__ = ['SensitivityBase', 'SearchChannelBase']
+
+from .sensitivity_base import SensitivityBase
+from .search_channel_base import SearchChannelBase

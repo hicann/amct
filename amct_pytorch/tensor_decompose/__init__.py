@@ -14,6 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ----------------------------------------------------------------------------
+"""Public re-export of the tensor decompose APIs.
 
-__all__ = ['config', 'utils', 'datasets', 'evaluate', 'models', 'types', 'auto_calibration',
-           'auto_channel_prune']
+The implementation lives under
+``amct_pytorch.classic.graph_based.amct_pytorch.tensor_decompose``.
+This package exposes the documented import path
+``from amct_pytorch.tensor_decompose import auto_decomposition, decompose_network``.
+"""
+
+__all__ = ['auto_decomposition', 'decompose_network']
+
+from amct_pytorch.classic.graph_based.amct_pytorch.tensor_decompose import (
+    auto_decomposition,
+    decompose_network,
+)
