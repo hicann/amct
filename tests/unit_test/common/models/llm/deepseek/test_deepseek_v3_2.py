@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 # ----------------------------------------------------------------------------
 # Copyright (c) Huawei Technologies Co., Ltd. 2026. All rights reserved.
@@ -7,7 +8,7 @@
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
-
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,28 +16,23 @@
 # limitations under the License.
 # ----------------------------------------------------------------------------
 
-#!/bin/bash
-export ASCEND_RT_VISIBLE_DEVICES=0
+from types import SimpleNamespace
 
-# bf16 inference
-python -m amct_pytorch.eval \
-  --trust_remote_code \
-  --model /path/to/model \
-  --model_name qwen3_5 \
-  --device npu:0 \
-  --granularity block \
-  --eval_mode bf16 \
-  --bit_config amct_pytorch/configs/bf16.yaml \
-  --seq_len 4096
+import pytest
 
-# replace quant module but turn off quant flag, bf16 inference
-python -m amct_pytorch.eval \
-  --trust_remote_code \
-  --model /path/to/model \
-  --model_name qwen3_5 \
-  --device npu:0 \
-  --granularity block \
-  --eval_mode quant \
-  --quant_target mlp attn-linear \
-  --bit_config amct_pytorch/configs/w8a8.yaml \
-  --seq_len 4096
+from amct_pytorch.common.models.llm.deepseek.deepseek_v3_2.deepseekv3_2 import (
+    DeepseekV32,
+)
+
+
+def test_init_requires_trust_remote_code():
+    args = SimpleNamespace(
+        model_name="deepseek_v3_2",
+        trust_remote_code=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="deepseek_v3_2 requires --trust_remote_code",
+    ):
+        DeepseekV32(args)

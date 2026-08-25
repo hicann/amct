@@ -7,7 +7,7 @@
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
-
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,28 +15,34 @@
 # limitations under the License.
 # ----------------------------------------------------------------------------
 
-#!/bin/bash
-export ASCEND_RT_VISIBLE_DEVICES=0
+import sys
+from unittest.mock import patch
 
-# bf16 inference
-python -m amct_pytorch.eval \
-  --trust_remote_code \
-  --model /path/to/model \
-  --model_name qwen3_5 \
-  --device npu:0 \
-  --granularity block \
-  --eval_mode bf16 \
-  --bit_config amct_pytorch/configs/bf16.yaml \
-  --seq_len 4096
+import pytest
 
-# replace quant module but turn off quant flag, bf16 inference
-python -m amct_pytorch.eval \
-  --trust_remote_code \
-  --model /path/to/model \
-  --model_name qwen3_5 \
-  --device npu:0 \
-  --granularity block \
-  --eval_mode quant \
-  --quant_target mlp attn-linear \
-  --bit_config amct_pytorch/configs/w8a8.yaml \
-  --seq_len 4096
+from amct_pytorch.cli.llm.args import parser_gen
+
+
+def test_trust_remote_code_defaults_to_false():
+    with patch.object(sys, "argv", ["amct"]):
+        args = parser_gen()
+
+    assert args.trust_remote_code is False
+
+
+def test_trust_remote_code_flag_sets_true():
+    with patch.object(sys, "argv", ["amct", "--trust_remote_code"]):
+        args = parser_gen()
+
+    assert args.trust_remote_code is True
+
+
+@pytest.mark.parametrize("value", ["True", "False", "yes"])
+def test_trust_remote_code_rejects_explicit_value(value):
+    with (
+        patch.object(sys, "argv", ["amct", "--trust_remote_code", value]),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        parser_gen()
+
+    assert exc_info.value.code == 2
