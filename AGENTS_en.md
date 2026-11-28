@@ -62,8 +62,10 @@ bash build.sh -u
 # Enable coverage
 bash build.sh -u --cov
 
-# Enable AddressSanitizer
-bash build.sh --asan
+# Build and run unit tests with AddressSanitizer
+# --asan is a modifier option and must be combined with a build/test target (e.g. -u);
+# running it alone does not execute any tests
+bash build.sh -u --asan
 ```
 
 ### Python Environment Installation

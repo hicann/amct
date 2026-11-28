@@ -62,8 +62,9 @@ bash build.sh -u
 # 启用覆盖率
 bash build.sh -u --cov
 
-# 启用 AddressSanitizer
-bash build.sh --asan
+# 启用 AddressSanitizer 构建并运行单元测试
+# --asan 为修饰参数，须与构建/测试目标（如 -u）组合使用，单独执行不会运行任何测试
+bash build.sh -u --asan
 ```
 
 ### Python 环境安装
